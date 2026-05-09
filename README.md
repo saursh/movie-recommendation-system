@@ -213,6 +213,13 @@ Top 5 recommendations:
 
 ---
 
+## 📘 Notebook
+
+You can view the full implementation here:
+
+- `movie_recommender_svd.ipynb`
+---
+
 ## 📬 Conclusion
 
 This project demonstrates a complete pipeline for building a recommendation system:
