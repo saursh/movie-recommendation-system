@@ -12,8 +12,8 @@ A hands-on series building a personalized recommendation system from scratch —
 
 ## 🧠 Part A: How Recommendation Systems Work
 
-<details>
-<summary><strong>▶ Expand</strong></summary>
+
+
 
 ### The Problem
 
@@ -143,7 +143,7 @@ Everything above — collaborative filtering, embeddings, dot product scoring, g
 
 Both approaches use the same conceptual foundation. Part B shows the classical path first.
 
-</details>
+
 
 ---
 
