@@ -1,388 +1,235 @@
-# 🎬 Movie Recommendation System using Machine Learning (SVD)
+# 🎬 Movie Recommendation System
 
-A production-style movie recommendation system built using collaborative filtering (SVD) on the MovieLens dataset.
+A hands-on series building a personalized recommendation system from scratch — starting with foundational concepts and progressing through classical ML to deep learning.
 
----
-
-## 🧠 Part A: Conceptual Understanding
-### 1. Problem Statement (with Example)
-
-We are given historical user–movie ratings and want to recommend movies a user has **not seen yet**.
-
-Example:
-
-| User  | Movie        | Rating |
-|------|--------------|--------|
-| Alice | Star Wars    | 5      |
-| Alice | Titanic      | 2      |
-| Bob   | Star Wars    | 4      |
-| Bob   | The Matrix   | 5      |
-
-Question:  
-**Should we recommend _The Matrix_ to Alice?**
-
-The system must infer preferences **without Alice explicitly rating The Matrix**.
----
-
-### 2. Why Collaborative Filtering? (with Example)
-
-Collaborative filtering is based on the idea:
-
-> Users who behaved similarly in the past will behave similarly in the future.
-
-Example:
-- Alice and Bob both like **Star Wars**
-- Bob also likes **The Matrix**
-
-👉 It is reasonable to recommend **The Matrix** to Alice.
-
-This approach:
-- Does **not** require movie metadata
-- Learns directly from **user behavior**
-- Captures collective patterns
+| Part | Topic | Status |
+|------|-------|--------|
+| [Part A](#-part-a-how-recommendation-systems-work) | How Recommendation Systems Work | ✅ Complete |
+| [Part B](#%EF%B8%8F-part-b-svd-implementation) | SVD Implementation | ✅ Complete · [Open Notebook »](./movie_recommender_svd.ipynb) |
+| Part C | Neural Network Implementation | 🔜 Coming Soon |
 
 ---
 
-### 3. Embeddings and Dimensions (Core Concept)
+## 🧠 Part A: How Recommendation Systems Work
 
-The model represents each user and each movie as an **embedding** — a low‑dimensional numerical vector.
+<details>
+<summary><strong>▶ Expand</strong></summary>
 
-Each element of the embedding vector is called a **dimension**.
+### The Problem
 
-Each dimension captures a hidden preference or characteristic learned from data, such as:
-- preference for action movies
-- preference for romance
-- preference for older movies
+Given a history of user ratings, recommend movies a user **hasn't seen yet** — without asking them directly.
 
-These dimensions are **not explicitly labeled** and are learned automatically during training.
----
+| User | Star Wars | Titanic | The Matrix |
+|------|-----------|---------|------------|
+| Alice | ⭐ 5 | ⭐ 2 | ? |
+| Bob | ⭐ 4 | — | ⭐ 5 |
 
-### 4. Users and Movies as Embedding Vectors
-
-SVD maps users and movies into a shared embedding space.
-
-Example (2 embedding dimensions):
-
-**User embeddings**
-
-| User  | Dim 1 | Dim 2 |
-|------|-------|-------|
-| Alice | 0.9   | 0.1   |
-| Bob   | 0.8   | 0.2   |
-
-**Movie embeddings**
-
-| Movie        | Dim 1 | Dim 2 |
-|--------------|-------|-------|
-| Star Wars    | 0.9   | 0.1   |
-| Titanic      | 0.1   | 0.9   |
-| The Matrix   | 0.85  | 0.15  |
+Should we recommend *The Matrix* to Alice? The system has to infer this from behavior alone.
 
 ---
 
-### 5. How a Rating Is Predicted (Concrete Example)
+### Collaborative Filtering
 
-A rating is predicted using a **dot product** of embeddings:
-Predicted Rating = User Embedding ⋅ Movie Embedding
-To predict Alice’s rating for **The Matrix**:
-(0.9 × 0.85) + (0.1 × 0.15) ≈ 0.78  → high score
-✅ The model predicts Alice will like **The Matrix**.
+The core idea: **users who agreed in the past will agree in the future.**
 
-To predict Alice’s rating for **Titanic**:
-(0.9 × 0.1) + (0.1 × 0.9) = 0.18 → low score
-✅ The model predicts Alice will not like Titanic.
+Alice and Bob both love Star Wars → Bob also loves The Matrix → recommend The Matrix to Alice.
+
+This approach requires no knowledge of what a movie is *about*. It learns purely from collective behavior — the same signal Netflix, Spotify, and Amazon use at scale.
 
 ---
 
-### 6. How Embeddings Are Learned: Alignment During Training
+### Representing Users and Movies as Vectors (Embeddings)
 
-Embeddings are **not predefined**.  
-They are learned through an iterative process called **alignment**.
+The model converts every user and every movie into a list of numbers called an **embedding**. Each number captures a hidden preference dimension — things like "tends toward action" or "prefers older films" — that the model discovers entirely on its own during training. These dimensions are never labeled by humans.
 
-#### Step 1: Random Initialization
-Alice = [0.2, 0.4]
+**Example (simplified to 2 dimensions for illustration):**
+
+| | Dim 1 | Dim 2 |
+|--|-------|-------|
+| Alice (user) | 0.9 | 0.1 |
+| The Matrix (movie) | 0.85 | 0.15 |
+| Titanic (movie) | 0.1 | 0.9 |
+
+> **In practice**, embeddings have far more dimensions — typically **50 to 200**. More dimensions let the model capture subtler patterns (e.g., "prefers ensemble casts" or "responds to slow-burn narratives"), but increase training cost and the risk of overfitting. Production systems at Netflix or Spotify operate in the hundreds of dimensions.
+
+Users and movies that share similar patterns end up with similar vectors — which is exactly what makes recommendations possible.
+
+---
+
+### Predicting a Rating
+
+A predicted rating is computed as the **dot product** of a user vector and a movie vector — a measure of how aligned they are.
+
+- Alice × The Matrix → `(0.9 × 0.85) + (0.1 × 0.15)` ≈ **0.78** → strong match ✅
+- Alice × Titanic → `(0.9 × 0.1) + (0.1 × 0.9)` ≈ **0.18** → weak match ❌
+
+---
+
+### How the Model Learns: Embedding Alignment
+
+Embeddings are **not predefined** — they are learned by repeatedly adjusting vectors to reduce prediction error.
+
+**Step 1 — Random initialization**
+
+All vectors start as random numbers. They carry no meaning yet.
+
+```
+Alice      = [0.2, 0.4]
 The Matrix = [0.3, 0.1]
-These values have no meaning yet.
+```
 
-#### Step 2: Predict and Measure Error
-Prediction = Alice · The Matrix = 0.10
-Actual Rating = 5
-Error = 5 − 0.10 = 4.9
-The large error indicates poor alignment.
+**Step 2 — Predict and measure error**
 
-#### Step 3: Adjust (Align) the Embeddings
+```
+Predicted = dot(Alice, The Matrix) = (0.2×0.3) + (0.4×0.1) = 0.10
+Actual rating = 5
+Error = 5 − 0.10 = 4.9   ← very large; vectors are poorly aligned
+```
 
-To reduce error:
-- User embedding moves **toward** the movie embedding
-- Movie embedding moves **toward** the user embedding
+**Step 3 — Nudge vectors toward each other**
 
-Alice = [0.4, 0.5]
-The Matrix = [0.5, 0.3]
-The embeddings are now more aligned.
+Both vectors are adjusted slightly in the direction that reduces the error:
 
+```
+Alice      = [0.4, 0.5]   ← moved toward The Matrix
+The Matrix = [0.5, 0.3]   ← moved toward Alice
+```
 
----
+After this nudge:
+```
+Predicted = (0.4×0.5) + (0.5×0.3) = 0.35
+Error = 5 − 0.35 = 4.65  ← still large, but smaller than before
+```
 
-### 7. Pseudocode: Embedding Learning Loop
+This process repeats across every known rating in the dataset, for many passes (called epochs), until predictions stabilize.
 
-initialize user_embeddings randomly; initialize movie_embeddings randomly
-for epoch in range(num_epochs):
-for (user, movie, rating) in training_data:
-    prediction = dot(user_embedding[user], movie_embedding[movie])
-    error = rating - prediction
-    update user_embedding[user] to reduce error
-    update movie_embedding[movie] to reduce error
-    apply regularization
-    
----
+**Training loop (pseudocode)**
 
-### 8. When Does Training Stop?
+```
+initialize all user_vectors and movie_vectors randomly
 
-Training stops when:
-- A fixed number of epochs is reached
-- Error reduction becomes marginal
-- Regularization prevents embeddings from growing too large
+for epoch in 1 to max_epochs:
+    for each (user, movie, actual_rating) in training_data:
+        predicted = dot(user_vectors[user], movie_vectors[movie])
+        error = actual_rating - predicted
 
----
+        user_vectors[user]   += learning_rate × error × movie_vectors[movie]
+        movie_vectors[movie] += learning_rate × error × user_vectors[user]
 
-### 9. Key Limitation (Motivation for Neural Models)
+        # Regularization: prevent vectors from growing too large
+        user_vectors[user]   -= regularization × user_vectors[user]
+        movie_vectors[movie] -= regularization × movie_vectors[movie]
 
-SVD combines embeddings using a **linear dot product**.
+    # Termination check — stop early if improvement has plateaued
+    if improvement_this_epoch < tolerance:
+        break
+```
 
-This limits the model’s ability to capture:
-- conditional preferences
-- non-linear interactions
+**When does training stop?**
+- A fixed number of epochs is reached, OR
+- Improvement per epoch falls below a threshold (early stopping), OR
+- Validation error starts rising — meaning the model is beginning to overfit
 
-Neural recommender systems extend this idea by applying **non-linear functions** on top of embeddings.
-    
----
-## ⚙️ Part B: Implementation & Results
-## 🚀 Project Overview
-
-This project implements a personalized recommendation system that learns user preferences from past ratings and predicts movies users are likely to enjoy.
-
-### The system:
-- Learns latent user and movie representations using matrix factorization  
-- Predicts ratings for unseen movies  
-- Recommends top‑N movies tailored to each user  
+At the end of training, each user vector has drifted to encode that user's taste, and each movie vector encodes that movie's latent character — purely from the pattern of ratings, with no human labels.
 
 ---
 
-## 🧠 Key Concepts Demonstrated
+### Where the Approaches Diverge
 
-- ✅ Collaborative Filtering  
-- ✅ Matrix Factorization (SVD)  
-- ✅ Embedding learning (latent factors)  
-- ✅ Model evaluation (RMSE, MAE)  
-- ✅ Ranking metrics (Precision@K)  
-- ✅ Real-world ML workflow (train → evaluate → deploy)  
+Everything above — collaborative filtering, embeddings, dot product scoring, gradient-based learning — is shared by all modern recommendation systems. What differs is **what happens after the dot product**:
 
----
+- **Classical methods** (Part B) keep the dot product as-is. Simple, interpretable, and fast to train.
+- **Neural network methods** (Part C) pass the user and movie vectors through non-linear layers, allowing the model to capture conditional patterns like *"this user likes action, but only when it's combined with comedy."*
 
-## 📂 Dataset
+Both approaches use the same conceptual foundation. Part B shows the classical path first.
 
-We use the **MovieLens 100K dataset**, containing:
-
-- 100,000 ratings  
-- 943 users  
-- 1,682 movies  
-
-### Files:
-- `u.data` → ratings (user–movie interactions)  
-- `u.item` → movie titles and metadata  
+</details>
 
 ---
 
-## ⚙️ Tech Stack
+## ⚙️ Part B: SVD Implementation
 
-- Python  
-- Pandas  
-- NumPy  
-- scikit-surprise  
+<details>
+<summary><strong>▶ Expand · <a href="./movie_recommender_svd.ipynb">Open Notebook »</a></strong></summary>
 
----
+### What is SVD?
 
-## 🤖 Model: SVD (Matrix Factorization & Embeddings)
-
-This project uses **Singular Value Decomposition (SVD)**, a widely used machine learning technique for recommender systems.
-
-### 🧠 Core Idea
-
-Instead of memorizing ratings, the model learns:
-
-- **User embeddings** → represent user preferences  
-- **Movie embeddings** → represent latent movie features  
-
-These embeddings are low-dimensional vectors capturing hidden patterns in the data.
+SVD (Singular Value Decomposition) is a matrix factorization technique that applies the learning loop from Part A directly to a user–movie ratings matrix. It was the breakthrough method behind the winning entry in the **Netflix Prize competition** (2009) and remains a strong baseline in production systems today.
 
 ---
 
-## 📌 Intuition: Recommendation as Similarity
+### Dataset
 
-Each user and movie is mapped into a shared latent space:
-
-- Users are placed near movies they are likely to enjoy  
-- Similar movies appear close to each other  
-
-👉 Recommendation becomes:
-
-> Find movies whose embeddings are **closest to the user embedding**
+**MovieLens 100K** — a standard benchmark dataset containing 100,000 ratings from 943 users across 1,682 movies (rated on a 1–5 scale). Loaded directly via `scikit-surprise`, which handles download and formatting.
 
 ---
 
-## 📐 How Prediction Works
+### Two-Stage Pipeline
 
-The predicted rating is computed as:
+The notebook mirrors how recommender systems are actually deployed in production:
 
-- ✅ High similarity → high predicted rating  
-- ❌ Low similarity → low predicted rating  
+**Stage 1 — Evaluate (train on 80%, test on 20%)**
 
----
+The model is trained on a subset of ratings, then asked to predict ratings it has never seen. This gives an honest measure of whether the model has learned generalizable patterns or just memorized the training data.
 
-## 🎯 Why This Works
+**Stage 2 — Deploy (retrain on 100%)**
 
-This allows the model to:
-
-- Generalize beyond known ratings  
-- Recommend unseen movies  
-- Capture patterns like:
-  - “user prefers sci‑fi + action”  
-  - “movie belongs to similar latent features”  
+Once the model passes evaluation, it is retrained on the full dataset before generating recommendations. Every rating is a signal — leaving 20% out would produce slightly worse recommendations for no benefit once we've already validated the approach.
 
 ---
 
-## 🏆 Industry Relevance
+### Evaluation Metrics
 
-This approach:
+| Metric | What it measures | Why it matters |
+|--------|-----------------|----------------|
+| **RMSE** | Average magnitude of rating prediction error | Penalizes large errors more heavily |
+| **MAE** | Average absolute rating prediction error | Easier to interpret ("off by X stars on average") |
+| **Precision@K** | Of the top-K recommendations, what fraction does the user actually like? | Closest to what the user actually experiences |
 
-- Was popularized in the **Netflix Prize competition**  
-- Remains foundational in modern recommender systems  
-- Forms the basis for many deep learning recommendation models  
-
----
-
-## 📊 Model Evaluation
-
-The model is evaluated using a train/test split.
-
-### Metrics:
-- **RMSE (Root Mean Squared Error)**  
-- **MAE (Mean Absolute Error)**  
-
-✅ These measure how accurately the model predicts user ratings.
+Precision@K is the most business-relevant metric — a user never sees whether a predicted rating was 4.1 vs 4.3, but they absolutely notice whether the top 5 recommendations are good.
 
 ---
 
-## 🎯 Recommendation Quality
+### Recommendation Logic
 
-We also evaluate ranking performance using:
+For a given user, the system:
+1. Identifies all movies the user has already rated and excludes them
+2. Runs SVD prediction on every remaining movie
+3. Sorts by predicted rating (descending)
+4. Returns the top N
 
-### ✅ Precision@K
-
-Measures how many of the top‑K recommended movies are relevant.
-👉 Higher values indicate better recommendation quality.
-
----
-
-## 🔄 Real-World Workflow (Important Design)
-
-This project follows a real-world ML pipeline:
-
-### ✅ Stage 1 — Evaluation
-- Split data into train/test  
-- Train model on known data  
-- Evaluate on unseen data  
-
-### ✅ Stage 2 — Deployment Model
-- Retrain model on full dataset  
-- Use all available data for recommendations  
-
-👉 This ensures both:
-- unbiased evaluation  
-- best-performing recommendation system  
+This ensures every recommendation is a movie the user hasn't already seen.
 
 ---
 
-## 🍿 Recommendation Strategy
+### Example Output
 
-For a given user:
+```
+Top 5 recommendations for User 196:
 
-1. Identify movies already rated (seen)  
-2. Filter them out  
-3. Predict ratings for unseen movies  
-4. Rank movies by predicted rating  
-5. Return top‑N recommendations  
-
----
-
-## ✅ Example Output
-
-Top 5 recommendations:
-
-1. Star Wars (1977) — Predicted Rating: 4.82  
-2. The Godfather (1972) — Predicted Rating: 4.78  
-3. Shawshank Redemption, The (1994) — Predicted Rating: 4.75  
-...  
+1. Star Wars (1977)          — Predicted Rating: 4.82
+2. The Godfather (1972)      — Predicted Rating: 4.78
+3. Schindler's List (1993)   — Predicted Rating: 4.75
+4. Casablanca (1942)         — Predicted Rating: 4.71
+5. Rear Window (1954)        — Predicted Rating: 4.68
+```
 
 ---
 
-## 🧩 Key Features
+### Tech Stack
 
-- ✅ Personalized recommendations using ML  
-- ✅ Clean evaluation pipeline (RMSE, MAE, Precision@K)  
-- ✅ Excludes already watched movies  
-- ✅ Movie ID → title mapping  
-- ✅ Production-style workflow  
-- ✅ Embedding-based recommendation logic  
+Python · Pandas · NumPy · scikit-surprise
+
+</details>
 
 ---
 
-## 📈 Future Improvements
+## 🔜 Part C: Neural Network Implementation *(Coming Soon)*
 
-- Add Recall@K, NDCG  
-- Build REST API (FastAPI)  
-- Create UI (Streamlit)  
-- Implement neural recommender (PyTorch)  
-- Handle cold-start users  
+Part C will extend this system using deep learning — replacing the dot product with a neural network that can model non-linear user-movie interactions, handle cold-start users, and incorporate side features like genre and release year.
 
 ---
 
-## 🧠 What I Learned
+## About This Project
 
-- Difference between prediction accuracy vs recommendation quality  
-- Importance of train/test separation in recommender systems  
-- How recommender systems learn latent embeddings  
-- How recommendations can be viewed as a similarity problem in vector space  
-- Why real systems use full data after evaluation  
-
----
-
-## 🚀 How to Run
-
-1. Open the notebook in Google Colab  
-2. Install dependencies  
-3. Run all cells  
-4. View evaluation metrics and recommendations  
-
----
-
-## 📘 Notebook
-
-You can view the full implementation here:
-
-- `movie_recommender_svd.ipynb`
----
-
-## 📬 Conclusion
-
-This project demonstrates a complete pipeline for building a recommendation system:
-
-- ✅ Train a model using collaborative filtering  
-- ✅ Evaluate it correctly  
-- ✅ Deploy a full-data model for recommendations  
-
----
-
-## ⭐ Support
-
-If you found this useful, consider giving the repository a ⭐
+Built to demonstrate practical ML system design — from problem framing and model selection through evaluation methodology and deployment strategy. The concepts here underpin recommendation engines at Netflix, Spotify, Amazon, and YouTube.
