@@ -4,6 +4,159 @@ A production-style movie recommendation system built using collaborative filteri
 
 ---
 
+## 🧠 Part A: Conceptual Understanding
+### 1. Problem Statement (with Example)
+
+We are given historical user–movie ratings and want to recommend movies a user has **not seen yet**.
+
+Example:
+
+| User  | Movie        | Rating |
+|------|--------------|--------|
+| Alice | Star Wars    | 5      |
+| Alice | Titanic      | 2      |
+| Bob   | Star Wars    | 4      |
+| Bob   | The Matrix   | 5      |
+
+Question:  
+**Should we recommend _The Matrix_ to Alice?**
+
+The system must infer preferences **without Alice explicitly rating The Matrix**.
+---
+
+### 2. Why Collaborative Filtering? (with Example)
+
+Collaborative filtering is based on the idea:
+
+> Users who behaved similarly in the past will behave similarly in the future.
+
+Example:
+- Alice and Bob both like **Star Wars**
+- Bob also likes **The Matrix**
+
+👉 It is reasonable to recommend **The Matrix** to Alice.
+
+This approach:
+- Does **not** require movie metadata
+- Learns directly from **user behavior**
+- Captures collective patterns
+
+---
+
+### 3. Embeddings and Dimensions (Core Concept)
+
+The model represents each user and each movie as an **embedding** — a low‑dimensional numerical vector.
+
+Each element of the embedding vector is called a **dimension**.
+
+Each dimension captures a hidden preference or characteristic learned from data, such as:
+- preference for action movies
+- preference for romance
+- preference for older movies
+
+These dimensions are **not explicitly labeled** and are learned automatically during training.
+---
+
+### 4. Users and Movies as Embedding Vectors
+
+SVD maps users and movies into a shared embedding space.
+
+Example (2 embedding dimensions):
+
+**User embeddings**
+
+| User  | Dim 1 | Dim 2 |
+|------|-------|-------|
+| Alice | 0.9   | 0.1   |
+| Bob   | 0.8   | 0.2   |
+
+**Movie embeddings**
+
+| Movie        | Dim 1 | Dim 2 |
+|--------------|-------|-------|
+| Star Wars    | 0.9   | 0.1   |
+| Titanic      | 0.1   | 0.9   |
+| The Matrix   | 0.85  | 0.15  |
+
+---
+
+### 5. How a Rating Is Predicted (Concrete Example)
+
+A rating is predicted using a **dot product** of embeddings:
+Predicted Rating = User Embedding ⋅ Movie Embedding
+To predict Alice’s rating for **The Matrix**:
+(0.9 × 0.85) + (0.1 × 0.15) ≈ 0.78  → high score
+✅ The model predicts Alice will like **The Matrix**.
+
+To predict Alice’s rating for **Titanic**:
+(0.9 × 0.1) + (0.1 × 0.9) = 0.18 → low score
+✅ The model predicts Alice will not like Titanic.
+
+---
+
+### 6. How Embeddings Are Learned: Alignment During Training
+
+Embeddings are **not predefined**.  
+They are learned through an iterative process called **alignment**.
+
+#### Step 1: Random Initialization
+Alice = [0.2, 0.4]
+The Matrix = [0.3, 0.1]
+These values have no meaning yet.
+
+#### Step 2: Predict and Measure Error
+Prediction = Alice · The Matrix = 0.10
+Actual Rating = 5
+Error = 5 − 0.10 = 4.9
+The large error indicates poor alignment.
+
+#### Step 3: Adjust (Align) the Embeddings
+
+To reduce error:
+- User embedding moves **toward** the movie embedding
+- Movie embedding moves **toward** the user embedding
+
+Alice = [0.4, 0.5]
+The Matrix = [0.5, 0.3]
+The embeddings are now more aligned.
+
+
+---
+
+### 7. Pseudocode: Embedding Learning Loop
+
+initialize user_embeddings randomly; initialize movie_embeddings randomly
+for epoch in range(num_epochs):
+for (user, movie, rating) in training_data:
+    prediction = dot(user_embedding[user], movie_embedding[movie])
+    error = rating - prediction
+    update user_embedding[user] to reduce error
+    update movie_embedding[movie] to reduce error
+    apply regularization
+    
+---
+
+### 8. When Does Training Stop?
+
+Training stops when:
+- A fixed number of epochs is reached
+- Error reduction becomes marginal
+- Regularization prevents embeddings from growing too large
+
+---
+
+### 9. Key Limitation (Motivation for Neural Models)
+
+SVD combines embeddings using a **linear dot product**.
+
+This limits the model’s ability to capture:
+- conditional preferences
+- non-linear interactions
+
+Neural recommender systems extend this idea by applying **non-linear functions** on top of embeddings.
+    
+---
+## ⚙️ Part B: Implementation & Results
 ## 🚀 Project Overview
 
 This project implements a personalized recommendation system that learns user preferences from past ratings and predicts movies users are likely to enjoy.
